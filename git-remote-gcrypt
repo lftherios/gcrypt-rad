@@ -527,13 +527,15 @@ AGE="$(git config --get "gcrypt.age-program" '.+' || echo age)"
 age_encrypt_symmetric()
 {
 	# $1 is the passphrase/key
-	echo "$1" | ${AGE} -p -a 2>/dev/null
+	# age -p requires TTY, so use openssl for symmetric encryption
+	# Using AES-256-CBC with PBKDF2 key derivation
+	openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -pass "pass:$1" -base64
 }
 
 age_decrypt_symmetric()
 {
 	# $1 is the passphrase/key
-	echo "$1" | ${AGE} -d 2>/dev/null
+	openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -pass "pass:$1" -base64
 }
 
 age_encrypt_asymmetric()
@@ -829,7 +831,8 @@ read_config_age()
 			elif echo "$recp_" | grep -qE '^(age1|ssh-)'; then
 				# It's a public key string
 				Recipients="$Recipients $recp_"
-				signers_="$signers_ ${recp_:0:20}..."
+				# Truncate for display (POSIX-compatible)
+				signers_="$signers_ $(echo "$recp_" | cut -c1-20)..."
 			else
 				echo_info "WARNING: Skipping unrecognized participant: $recp_"
 			fi
